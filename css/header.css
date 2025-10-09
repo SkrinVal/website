@@ -1,0 +1,31 @@
+.header {
+  background-color: blue;
+  height: 60px;
+  position: fixed;
+  display: flex;
+  flex-direction: row;
+  right: 0;
+  left: 0;
+  top: 0;
+}
+
+.left-section {
+  display: flex;
+  background-color: black;
+}
+
+.right-section {
+  display: flex;
+  position: fixed;
+  right: 0;
+  background-color: white;
+}
+
+.home-icon{
+    width: 50px;
+}
+
+.hamburger {
+  width: 50px;
+  margin-left: 50px;
+}
