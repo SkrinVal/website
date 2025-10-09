@@ -1,0 +1,33 @@
+body{
+    background-color: white;
+}
+
+
+.blabla{
+    width: 200px;
+    border-radius: 100px;
+    height: 50px;
+    margin-top: 300px;
+    margin-left: 600px;
+    background-color: aliceblue;
+    border-color: aqua;
+    color: black;
+    font-size: large;
+}
+
+body {
+  margin: 0;
+  font-family: "Roboto", sans-serif;
+}
+
+.mainIMG{
+    width: 100%;
+    border-left: 0;
+    border-right: 0;
+    object-fit: cover;
+    filter: brightness(0.5);
+}
+
+.logo{
+    width: 200px;
+}
