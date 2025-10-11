@@ -1,31 +1,25 @@
 .header {
-  background-color: blue;
   height: 60px;
   position: fixed;
   display: flex;
-  flex-direction: row;
   right: 0;
   left: 0;
   top: 0;
-}
-
-.left-section {
-  display: flex;
-  background-color: black;
-}
-
-.right-section {
-  display: flex;
-  position: fixed;
-  right: 0;
+  z-index: 100;
   background-color: white;
+  border-bottom-width: 1px;
+  border-bottom-style: solid;
+  border-bottom-color: rgb(228, 228, 228);
 }
+
 
 .home-icon{
     width: 50px;
+    cursor: pointer;
 }
 
 .hamburger {
   width: 50px;
   margin-left: 50px;
+  cursor: pointer;
 }

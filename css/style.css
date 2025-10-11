@@ -1,5 +1,6 @@
 body{
     background-color: white;
+    height: 3000px;
 }
 
 
@@ -21,6 +22,7 @@ body {
 }
 
 .mainIMG{
+    margin-top: 61px;
     width: 100%;
     border-left: 0;
     border-right: 0;
