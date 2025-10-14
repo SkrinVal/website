@@ -1,0 +1,69 @@
+.header {
+  height: 60px;
+  position: fixed;
+  display: flex;
+  right: 0;
+  left: 0;
+  top: 0;
+  background-color: #f4f5f7;
+  z-index: 100;
+  border-radius: 15px;
+  margin-bottom: 10px;
+
+  width: 100%;
+  align-items: center;
+  justify-content: end;
+}
+
+.home,
+.prices {
+  margin-right: 80px;
+  display: flex;
+  cursor: pointer;
+  color: black;
+  align-items: center;
+}
+
+.contact-us {
+  margin-right: 385px;
+  color: black;
+}
+
+.contact-us:hover,
+.prices:hover,
+.home:hover {
+  text-decoration: underline;
+  transform: scale(1.1);
+    transition: 0.5s;
+  color: rgb(5, 79, 109);
+}
+
+.booking {
+  width: 100px;
+  margin-right: 15px;
+  background-color: black;
+  color: white;
+  border: none;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  padding-left: 5px;
+  padding-right: 5px;
+  opacity: 0.9;
+  border-radius: 20px;
+  cursor: pointer;
+  position: relative;
+  justify-content: end;
+}
+
+.booking:hover {
+  transform:  scale(1.1);
+  transition: 0.5s;
+  background-color: rgb(5, 79, 109);
+}
+
+.Logo {
+  width: 100px;
+  position: absolute;
+  left: 0;
+  cursor: pointer;
+}

@@ -1,0 +1,108 @@
+body{
+    background-color: white;
+    height: 3000px;
+}
+
+
+.blabla{
+    width: 200px;
+    border-radius: 100px;
+    height: 50px;
+    margin-top: 300px;
+    margin-left: 600px;
+    background-color: aliceblue;
+    border-color: aqua;
+    color: black;
+    font-size: large;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    background-color: #f4f5f7;
+}
+
+.mainIMG{
+    position: absolute;
+    top: 70px;
+    border-left: 500px;
+    border-right: 0;
+    object-fit: cover;
+    filter: brightness(0.5);
+    border-radius: 40px;
+    height: 850px;
+    width: 50%;
+    right: 50px;
+    z-index: 3;
+
+}
+
+.Überschrift {
+    position: absolute;
+    top: 70px;
+    left: 50px;
+    font-size: 60px;
+    width: 35%;
+    text-shadow: 5px 5px rgba(230, 230, 230, 0.5);
+    font-family: Unbounded;
+    background-color: white;
+    margin-bottom: 100px;
+}
+
+.RiSk {
+    color: lightgreen;
+    opacity: 0.7;
+    margin-bottom: 100px;
+}
+
+.Beschreibung {
+    position: absolute;
+    top: 410px;
+    left: 50px;
+    font-size: 25px;
+    width: 30%;
+}
+
+.Hintergrund {
+    position: absolute;
+    top: 60px;
+    left: 40px;
+    font-size: 30px;
+    /* width: 30%; */
+    background-color: white;
+    border: none;
+    height: 900px;
+    z-index: -1;
+    border-radius: 50px;
+    right: 45px;
+    display: flex;
+    flex: 1;
+
+}
+
+.Pfeil {
+    width: 40px;
+    background-color: white;
+    border-radius: 20px;
+    position: absolute;
+    top: 585px;
+    left: 525px;
+    z-index: 2;
+    cursor: pointer;
+}
+
+.blaue-box {
+    width: 300px;
+    height: 150px;
+    background-color: #a9eaf7;
+    border: none;
+    position: absolute;
+    top: 550px;
+    border-radius: 30px;
+    left: 400px;
+    padding-top: 50px;
+    font-size: large;
+    text-decoration: solid;
+}
+
+
