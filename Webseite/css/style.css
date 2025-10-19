@@ -1,5 +1,4 @@
 body{
-    background-color: white;
     height: 3000px;
 }
 
@@ -40,7 +39,7 @@ body {
 .Überschrift {
     position: absolute;
     top: 70px;
-    left: 50px;
+    left: 60px;
     font-size: 60px;
     width: 35%;
     text-shadow: 5px 5px rgba(230, 230, 230, 0.5);
@@ -58,7 +57,7 @@ body {
 .Beschreibung {
     position: absolute;
     top: 410px;
-    left: 50px;
+    left: 60px;
     font-size: 25px;
     width: 30%;
 }
@@ -74,7 +73,7 @@ body {
     height: 900px;
     z-index: -1;
     border-radius: 50px;
-    right: 45px;
+    right: 40px;
     display: flex;
     flex: 1;
 
@@ -85,8 +84,8 @@ body {
     background-color: white;
     border-radius: 20px;
     position: absolute;
-    top: 585px;
-    left: 525px;
+    top: 785px;
+    left: 225px;
     z-index: 2;
     cursor: pointer;
 }
@@ -97,12 +96,26 @@ body {
     background-color: #a9eaf7;
     border: none;
     position: absolute;
-    top: 550px;
+    top: 750px;
     border-radius: 30px;
-    left: 400px;
+    left: 100px;
     padding-top: 50px;
     font-size: large;
     text-decoration: solid;
 }
+
+
+
+.Text {
+  z-index: 10;
+  position: relative;
+  top: 100px;
+  left: 100px;
+  width: 500px;
+  font-size: 35px;
+  font-family: Unbounded;
+
+}
+
 
 

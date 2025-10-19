@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>www.RiSk.de</title>
+    <title>www.RiSk-dev.de</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/header.css">
     <link rel="stylesheet" href="/css/hamburger.css">
@@ -20,18 +20,23 @@
         
         <img src="/src/Bilder/Logo2.png" class="Logo" onclick="goToStart()">
 
-        <a class="home" href="/html/index.html">
+            <a class="home" href="/html/index.html">
             Home
-        </a>
+            </a>
 
-        <a class="prices" href="/html/prices.html"> 
+        
+            <a class="prices" href="/html/prices.html"> 
             Prices
         </a>
-
-         <a class="contact-us" href="/html/contact-us.html">
+    
+            <a class="contact-us" href="/html/contact-us.html">
             Contact Us
         </a>
 
+        <input class="search-bar" type="text" placeholder="Search">
+        <button class="search"><img src="/src/Bilder/search.svg"  class="search-icon"></button>
+
+         
 
         <button class="booking" href="/html/index.html"  onclick="goToBooking()">
             Booking
@@ -40,14 +45,18 @@
     </div>
 
     <div class="Startseite">
-        <h1 class="Überschrift">
+        <div>
+            <h1 class="Überschrift">
             Welcome to our developer Website! 
             <span class="RiSk">No RiSk no fun!</span>
         </h1>
-
+        </div>
+        
+        <div>
         <p class="Beschreibung">
             We are Kili & Vali and we are developing websites for you.
         </p>
+        </div>
 
         <div>
             <img src="/src/Bilder/Pfeil2.png" class="Pfeil" onclick="goToExamples()">

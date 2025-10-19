@@ -1,0 +1,47 @@
+.fill {
+  font-size: 18px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  display: flex;
+  text-align: center;
+  font-weight: bold;
+  padding: 15px 40px;
+  border: 3px solid lightblue;
+  border-radius: 40px;
+  position: relative;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.16),
+  0 3px 6px rgba(0,0,0,0.1);
+  color: lightblue;
+  text-decoration: none;
+  transition: 0.3s ease all;
+  z-index: 1;
+  top: 200px;
+  left: 200px;
+  cursor: pointer;
+}
+
+.fill::before {
+  transition: 0.5s all ease;
+  position: absolute;
+  top: 200px;
+  left: 500px;
+  opacity: 0;
+  content: '';
+  z-index: -1;
+
+}
+
+.fill:hover, .fill:focus {
+  color: white;
+  background-color: lightblue;
+}
+
+.fill:hover::before, .fill:focus::before {
+  transition: 0.5s all ease;
+  opacity: 1;
+}
+
+.fill:active {
+  transform: scale(0.9);
+  background-color: lightblue;
+}

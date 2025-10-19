@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>www.RiSk/booking.de</title>
+    <title>www.RiSk-dev/booking.de</title>
     <link rel="stylesheet" href="/css/header.css">
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/booking.css">
+    <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@200..900&display=swap" rel="stylesheet">
 </head>
 <body>
     <script src="/Js/main.js"></script>
@@ -26,12 +28,43 @@
             Contact Us
         </a>
 
-
+        <input class="search-bar" type="text" placeholder="Search">
+        <button class="search"><img src="/src/Bilder/search.svg"  class="search-icon"></button>        
+        
         <button class="booking" href="/html/index.html"  onclick="goToBooking()">
             Booking
         </button>
 
+        
+
     </div>
+
+    <p class="Text">
+        Here you can tell us how your website should look like:
+    </p>
+
+    <div class="checkbox">
+        <label>For Company</label>
+        <input type="checkbox" name="" id="" class="checkbox1">
+
+        <label>For Private Use</label>
+        <input type="checkbox" name="" id="" class="checkbox2">
+
+
+        <label>For ... Use</label>
+        <input type="checkbox" name="" id="" class="checkbox2"> 
+        
+        <button class="checkbox-send-button">Send</button>
+    </div>
+
+
+    <input type="text" id="auto" class="Textbox" placeholder="How do you want your website?">
+
+    <button class="send-button">Send</button>
+
+    <img src="/src/Bilder/booking-mainIMG.png" class="booking-mainIMG">
+
+    <button class="Hintergrund"></button>
 </body>
 </html>
 

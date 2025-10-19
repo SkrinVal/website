@@ -9,3 +9,5 @@
     function goToStart() {
       window.location.href = "index.html";
     }    
+
+
