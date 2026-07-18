@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Arena Trainer</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: radial-gradient(ellipse at center, #1a1f2e 0%, #0b0d14 100%);
+    font-family: "Segoe UI", Arial, sans-serif;
+    color: #e8ecf4;
+  }
+  h1 { margin: 4px 0 0; font-size: 22px; letter-spacing: 1px; }
+  #hud {
+    display: flex;
+    gap: 24px;
+    font-size: 14px;
+    background: #151925;
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: 1px solid #2a3040;
+  }
+  #hud div span { color: #ffd166; font-weight: 700; }
+  canvas {
+    background: #10131c;
+    border: 2px solid #2a3040;
+    border-radius: 10px;
+    cursor: crosshair;
+  }
+  #overlay {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background: rgba(10, 12, 20, 0.92);
+    border-radius: 10px;
+  }
+  #overlay .panel {
+    padding: 28px 36px;
+    border-radius: 12px;
+    border: 1px solid #2a3040;
+    background: #10131c;
+  }
+  #overlay h2 { margin-top: 0; }
+  #overlay button {
+    margin-top: 14px;
+    padding: 10px 22px;
+    font-size: 15px;
+    border: none;
+    border-radius: 6px;
+    background: #ffd166;
+    color: #10131c;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  #overlay p { color: #a6adc2; line-height: 1.5; }
+  .bar-wrap { position: relative; width: 900px; }
+</style>
+</head>
+<body>
+<h1>Arena Trainer — Ausweichen · Zielen · Super-Timing</h1>
+<div id="hud">
+  <div>HP <span id="hpText">100</span></div>
+  <div>Score <span id="scoreText">0</span></div>
+  <div>Treffer <span id="accText">0/0 (0%)</span></div>
+  <div>Zeit <span id="timeText">0s</span></div>
+  <div>Super <span id="superText">0%</span></div>
+</div>
+<div class="bar-wrap">
+  <canvas id="game" width="900" height="600"></canvas>
+  <div id="overlay">
+    <div class="panel">
+      <h2 id="overlayTitle">Arena Trainer</h2>
+      <p id="overlayText">
+        WASD / Pfeiltasten: bewegen &amp; Projektilen ausweichen<br>
+        Maus + Klick: auf bewegliches Ziel schießen (vorhalten!)<br>
+        Leertaste bei vollem Super-Balken: Super-Blast (räumt Projektile weg)
+      </p>
+      <button id="startBtn">Start</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+const hpText = document.getElementById('hpText');
+const scoreText = document.getElementById('scoreText');
+const accText = document.getElementById('accText');
+const timeText = document.getElementById('timeText');
+const superText = document.getElementById('superText');
+const overlay = document.getElementById('overlay');
+const overlayTitle = document.getElementById('overlayTitle');
+const overlayText = document.getElementById('overlayText');
+const startBtn = document.getElementById('startBtn');
+
+const keys = {};
+let mouse = { x: W / 2, y: H / 2 };
+
+window.addEventListener('keydown', e => {
+  keys[e.key.toLowerCase()] = true;
+  if (e.key === ' ') { e.preventDefault(); tryActivateSuper(); }
+});
+window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+canvas.addEventListener('mousemove', e => {
+  const r = canvas.getBoundingClientRect();
+  mouse.x = e.clientX - r.left;
+  mouse.y = e.clientY - r.top;
+});
+canvas.addEventListener('mousedown', () => tryShoot());
+
+let state = 'START'; // START | PLAYING | GAMEOVER
+let player, enemyProjectiles, playerProjectiles, targets;
+let score, shotsFired, shotsHit, superMeter, elapsed;
+let spawnTimer, lastShotTime, invulnUntil;
+
+function reset() {
+  player = { x: W / 2, y: H / 2, r: 14, speed: 260, hp: 100 };
+  enemyProjectiles = [];
+  playerProjectiles = [];
+  targets = [makeTarget(), makeTarget()];
+  score = 0;
+  shotsFired = 0;
+  shotsHit = 0;
+  superMeter = 0;
+  elapsed = 0;
+  spawnTimer = 0;
+  lastShotTime = -999;
+  invulnUntil = 0;
+}
+
+function makeTarget() {
+  const ang = Math.random() * Math.PI * 2;
+  return {
+    x: 100 + Math.random() * (W - 200),
+    y: 100 + Math.random() * (H - 200),
+    r: 16,
+    vx: Math.cos(ang) * 90,
+    vy: Math.sin(ang) * 90,
+  };
+}
+
+function difficulty() {
+  const t = elapsed;
+  return {
+    spawnInterval: Math.max(0.28, 0.9 - t * 0.008),
+    projSpeed: 180 + Math.min(160, t * 3),
+  };
+}
+
+function spawnEnemyProjectile() {
+  const side = Math.floor(Math.random() * 4);
+  let x, y;
+  if (side === 0) { x = 0; y = Math.random() * H; }
+  else if (side === 1) { x = W; y = Math.random() * H; }
+  else if (side === 2) { x = Math.random() * W; y = 0; }
+  else { x = Math.random() * W; y = H; }
+  const dx = player.x - x, dy = player.y - y;
+  const len = Math.hypot(dx, dy) || 1;
+  const spd = difficulty().projSpeed;
+  enemyProjectiles.push({ x, y, vx: dx / len * spd, vy: dy / len * spd, r: 7 });
+}
+
+function tryShoot() {
+  if (state !== 'PLAYING') return;
+  const now = performance.now();
+  if (now - lastShotTime < 220) return;
+  lastShotTime = now;
+  shotsFired++;
+  const dx = mouse.x - player.x, dy = mouse.y - player.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const spd = 560;
+  playerProjectiles.push({ x: player.x, y: player.y, vx: dx / len * spd, vy: dy / len * spd, r: 5 });
+}
+
+function tryActivateSuper() {
+  if (state !== 'PLAYING') return;
+  if (superMeter < 100) return;
+  superMeter = 0;
+  score += 50;
+  enemyProjectiles = [];
+  invulnUntil = performance.now() + 900;
+}
+
+function update(dt) {
+  elapsed += dt;
+
+  let dx = 0, dy = 0;
+  if (keys['w'] || keys['arrowup']) dy -= 1;
+  if (keys['s'] || keys['arrowdown']) dy += 1;
+  if (keys['a'] || keys['arrowleft']) dx -= 1;
+  if (keys['d'] || keys['arrowright']) dx += 1;
+  const len = Math.hypot(dx, dy);
+  if (len > 0) {
+    player.x += (dx / len) * player.speed * dt;
+    player.y += (dy / len) * player.speed * dt;
+  }
+  player.x = Math.max(player.r, Math.min(W - player.r, player.x));
+  player.y = Math.max(player.r, Math.min(H - player.r, player.y));
+
+  const diff = difficulty();
+  spawnTimer -= dt;
+  if (spawnTimer <= 0) {
+    spawnEnemyProjectile();
+    spawnTimer = diff.spawnInterval;
+  }
+
+  const invuln = performance.now() < invulnUntil;
+  for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
+    const p = enemyProjectiles[i];
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    if (p.x < -20 || p.x > W + 20 || p.y < -20 || p.y > H + 20) { enemyProjectiles.splice(i, 1); continue; }
+    if (!invuln && Math.hypot(p.x - player.x, p.y - player.y) < p.r + player.r) {
+      player.hp -= 12;
+      enemyProjectiles.splice(i, 1);
+      if (player.hp <= 0) { gameOver(); return; }
+    }
+  }
+
+  for (let i = playerProjectiles.length - 1; i >= 0; i--) {
+    const p = playerProjectiles[i];
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    if (p.x < -10 || p.x > W + 10 || p.y < -10 || p.y > H + 10) { playerProjectiles.splice(i, 1); continue; }
+    for (let j = 0; j < targets.length; j++) {
+      const t = targets[j];
+      if (Math.hypot(p.x - t.x, p.y - t.y) < p.r + t.r) {
+        shotsHit++;
+        score += 10;
+        superMeter = Math.min(100, superMeter + 8);
+        targets[j] = makeTarget();
+        playerProjectiles.splice(i, 1);
+        break;
+      }
+    }
+  }
+
+  for (const t of targets) {
+    t.x += t.vx * dt; t.y += t.vy * dt;
+    if (t.x < t.r || t.x > W - t.r) t.vx *= -1;
+    if (t.y < t.r || t.y > H - t.r) t.vy *= -1;
+    t.x = Math.max(t.r, Math.min(W - t.r, t.x));
+    t.y = Math.max(t.r, Math.min(H - t.r, t.y));
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  ctx.strokeStyle = '#1e2433';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 45) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 45) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+  for (const t of targets) {
+    ctx.fillStyle = '#7ee787';
+    ctx.beginPath(); ctx.arc(t.x, t.y, t.r, 0, 7); ctx.fill();
+  }
+
+  for (const p of enemyProjectiles) {
+    ctx.fillStyle = '#ff5c5c';
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
+  }
+  for (const p of playerProjectiles) {
+    ctx.fillStyle = '#8ecbff';
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
+  }
+
+  const invuln = performance.now() < invulnUntil;
+  ctx.fillStyle = invuln ? '#ffd166' : '#4da6ff';
+  ctx.beginPath(); ctx.arc(player.x, player.y, player.r, 0, 7); ctx.fill();
+  ctx.strokeStyle = '#ffffff33';
+  ctx.beginPath(); ctx.arc(player.x, player.y, player.r + 3, 0, 7); ctx.stroke();
+
+  ctx.strokeStyle = '#ffffff22';
+  ctx.beginPath();
+  ctx.moveTo(player.x, player.y);
+  ctx.lineTo(mouse.x, mouse.y);
+  ctx.stroke();
+}
+
+function updateHud() {
+  hpText.textContent = Math.max(0, Math.round(player.hp));
+  scoreText.textContent = score;
+  const pct = shotsFired ? Math.round((shotsHit / shotsFired) * 100) : 0;
+  accText.textContent = `${shotsHit}/${shotsFired} (${pct}%)`;
+  timeText.textContent = `${Math.floor(elapsed)}s`;
+  superText.textContent = `${Math.round(superMeter)}%`;
+}
+
+function gameOver() {
+  state = 'GAMEOVER';
+  overlayTitle.textContent = 'Game Over';
+  const pct = shotsFired ? Math.round((shotsHit / shotsFired) * 100) : 0;
+  overlayText.innerHTML =
+    `Score: <b>${score}</b><br>Überlebt: <b>${Math.floor(elapsed)}s</b><br>Treffgenauigkeit: <b>${pct}%</b>`;
+  startBtn.textContent = 'Nochmal';
+  overlay.style.display = 'flex';
+}
+
+let lastTs = 0;
+function loop(ts) {
+  const dt = Math.min(0.05, (ts - lastTs) / 1000 || 0);
+  lastTs = ts;
+  if (state === 'PLAYING') {
+    update(dt);
+    updateHud();
+  }
+  draw();
+  requestAnimationFrame(loop);
+}
+
+startBtn.addEventListener('click', () => {
+  reset();
+  state = 'PLAYING';
+  overlay.style.display = 'none';
+});
+
+reset();
+overlay.style.display = 'flex';
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
