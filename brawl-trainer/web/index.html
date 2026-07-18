@@ -2,10 +2,12 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Arena Trainer</title>
 <style>
   :root { color-scheme: dark; }
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { overscroll-behavior: none; }
   body {
     margin: 0;
     min-height: 100vh;
@@ -13,15 +15,18 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 12px;
+    gap: 10px;
+    padding: 8px;
     background: radial-gradient(ellipse at center, #1a1f2e 0%, #0b0d14 100%);
     font-family: "Segoe UI", Arial, sans-serif;
     color: #e8ecf4;
   }
-  h1 { margin: 4px 0 0; font-size: 22px; letter-spacing: 1px; }
+  h1 { margin: 4px 0 0; font-size: 22px; letter-spacing: 1px; text-align: center; }
   #hud {
     display: flex;
-    gap: 24px;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px 24px;
     font-size: 14px;
     background: #151925;
     padding: 8px 18px;
@@ -30,10 +35,18 @@
   }
   #hud div span { color: #ffd166; font-weight: 700; }
   canvas {
+    display: block;
+    width: 100%;
+    height: auto;
     background: #10131c;
     border: 2px solid #2a3040;
     border-radius: 10px;
     cursor: crosshair;
+    touch-action: none;
+  }
+  @media (max-width: 600px) {
+    h1 { font-size: 16px; }
+    #hud { font-size: 12px; gap: 6px 14px; padding: 6px 12px; }
   }
   #overlay {
     position: absolute;
@@ -65,7 +78,7 @@
     cursor: pointer;
   }
   #overlay p { color: #a6adc2; line-height: 1.5; }
-  .bar-wrap { position: relative; width: 900px; }
+  .bar-wrap { position: relative; width: min(900px, 96vw); }
 </style>
 </head>
 <body>
@@ -82,11 +95,7 @@
   <div id="overlay">
     <div class="panel">
       <h2 id="overlayTitle">Arena Trainer</h2>
-      <p id="overlayText">
-        WASD / Pfeiltasten: bewegen &amp; Projektilen ausweichen<br>
-        Maus + Klick: auf bewegliches Ziel schießen (vorhalten!)<br>
-        Leertaste bei vollem Super-Balken: Super-Blast (räumt Projektile weg)
-      </p>
+      <p id="overlayText"></p>
       <button id="startBtn">Start</button>
     </div>
   </div>
@@ -110,17 +119,78 @@ const startBtn = document.getElementById('startBtn');
 const keys = {};
 let mouse = { x: W / 2, y: H / 2 };
 
+const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+
+const JOY_MAX = 55;
+const joystick = { active: false, id: null, baseX: 0, baseY: 0, curX: 0, curY: 0 };
+const aim = { active: false, id: null };
+const superBtn = { x: W - 70, y: H - 70, r: 42 };
+
+function canvasPos(clientX, clientY) {
+  const r = canvas.getBoundingClientRect();
+  return {
+    x: (clientX - r.left) * (W / r.width),
+    y: (clientY - r.top) * (H / r.height),
+  };
+}
+
 window.addEventListener('keydown', e => {
   keys[e.key.toLowerCase()] = true;
   if (e.key === ' ') { e.preventDefault(); tryActivateSuper(); }
 });
 window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 canvas.addEventListener('mousemove', e => {
-  const r = canvas.getBoundingClientRect();
-  mouse.x = e.clientX - r.left;
-  mouse.y = e.clientY - r.top;
+  const p = canvasPos(e.clientX, e.clientY);
+  mouse.x = p.x; mouse.y = p.y;
 });
-canvas.addEventListener('mousedown', () => tryShoot());
+canvas.addEventListener('mousedown', e => {
+  const p = canvasPos(e.clientX, e.clientY);
+  mouse.x = p.x; mouse.y = p.y;
+  if (Math.hypot(p.x - superBtn.x, p.y - superBtn.y) < superBtn.r) { tryActivateSuper(); return; }
+  tryShoot();
+});
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (state !== 'PLAYING') return;
+  for (const t of e.changedTouches) {
+    const p = canvasPos(t.clientX, t.clientY);
+    if (Math.hypot(p.x - superBtn.x, p.y - superBtn.y) < superBtn.r) {
+      tryActivateSuper();
+    } else if (p.x < W / 2 && !joystick.active) {
+      joystick.active = true;
+      joystick.id = t.identifier;
+      joystick.baseX = p.x; joystick.baseY = p.y;
+      joystick.curX = p.x; joystick.curY = p.y;
+    } else if (!aim.active) {
+      aim.active = true;
+      aim.id = t.identifier;
+      mouse.x = p.x; mouse.y = p.y;
+      tryShoot();
+    }
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    const p = canvasPos(t.clientX, t.clientY);
+    if (joystick.active && t.identifier === joystick.id) {
+      joystick.curX = p.x; joystick.curY = p.y;
+    } else if (aim.active && t.identifier === aim.id) {
+      mouse.x = p.x; mouse.y = p.y;
+    }
+  }
+}, { passive: false });
+
+function touchEndHandler(e) {
+  for (const t of e.changedTouches) {
+    if (joystick.active && t.identifier === joystick.id) joystick.active = false;
+    if (aim.active && t.identifier === aim.id) aim.active = false;
+  }
+}
+canvas.addEventListener('touchend', touchEndHandler);
+canvas.addEventListener('touchcancel', touchEndHandler);
 
 let state = 'START'; // START | PLAYING | GAMEOVER
 let player, enemyProjectiles, playerProjectiles, targets;
@@ -140,6 +210,8 @@ function reset() {
   spawnTimer = 0;
   lastShotTime = -999;
   invulnUntil = 0;
+  joystick.active = false;
+  aim.active = false;
 }
 
 function makeTarget() {
@@ -198,18 +270,30 @@ function tryActivateSuper() {
 function update(dt) {
   elapsed += dt;
 
-  let dx = 0, dy = 0;
-  if (keys['w'] || keys['arrowup']) dy -= 1;
-  if (keys['s'] || keys['arrowdown']) dy += 1;
-  if (keys['a'] || keys['arrowleft']) dx -= 1;
-  if (keys['d'] || keys['arrowright']) dx += 1;
-  const len = Math.hypot(dx, dy);
-  if (len > 0) {
-    player.x += (dx / len) * player.speed * dt;
-    player.y += (dy / len) * player.speed * dt;
+  let dx = 0, dy = 0, mag = 1;
+  if (joystick.active) {
+    const jdx = joystick.curX - joystick.baseX, jdy = joystick.curY - joystick.baseY;
+    const jlen = Math.hypot(jdx, jdy);
+    if (jlen > 0) {
+      mag = Math.min(1, jlen / JOY_MAX);
+      dx = jdx / jlen; dy = jdy / jlen;
+    } else {
+      mag = 0;
+    }
+  } else {
+    if (keys['w'] || keys['arrowup']) dy -= 1;
+    if (keys['s'] || keys['arrowdown']) dy += 1;
+    if (keys['a'] || keys['arrowleft']) dx -= 1;
+    if (keys['d'] || keys['arrowright']) dx += 1;
+    const len = Math.hypot(dx, dy);
+    if (len > 0) { dx /= len; dy /= len; } else { mag = 0; }
   }
+  player.x += dx * player.speed * mag * dt;
+  player.y += dy * player.speed * mag * dt;
   player.x = Math.max(player.r, Math.min(W - player.r, player.x));
   player.y = Math.max(player.r, Math.min(H - player.r, player.y));
+
+  if (aim.active) tryShoot();
 
   const diff = difficulty();
   spawnTimer -= dt;
@@ -289,6 +373,39 @@ function draw() {
   ctx.moveTo(player.x, player.y);
   ctx.lineTo(mouse.x, mouse.y);
   ctx.stroke();
+
+  if (joystick.active) {
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    ctx.beginPath(); ctx.arc(joystick.baseX, joystick.baseY, JOY_MAX, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.beginPath(); ctx.arc(joystick.baseX, joystick.baseY, JOY_MAX, 0, 7); ctx.stroke();
+    const jdx = joystick.curX - joystick.baseX, jdy = joystick.curY - joystick.baseY;
+    const jlen = Math.hypot(jdx, jdy) || 1;
+    const clamp = Math.min(jlen, JOY_MAX);
+    const kx = joystick.baseX + (jdx / jlen) * clamp;
+    const ky = joystick.baseY + (jdy / jlen) * clamp;
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.beginPath(); ctx.arc(kx, ky, 22, 0, 7); ctx.fill();
+  }
+
+  if (isTouchDevice && state === 'PLAYING') {
+    const ready = superMeter >= 100;
+    ctx.fillStyle = ready ? 'rgba(255,209,102,0.35)' : 'rgba(255,255,255,0.08)';
+    ctx.beginPath(); ctx.arc(superBtn.x, superBtn.y, superBtn.r, 0, 7); ctx.fill();
+    ctx.strokeStyle = ready ? '#ffd166' : 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(superBtn.x, superBtn.y, superBtn.r, -Math.PI / 2, -Math.PI / 2 + (superMeter / 100) * Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+    ctx.fillStyle = ready ? '#10131c' : '#e8ecf4';
+    ctx.font = 'bold 13px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('SUPER', superBtn.x, superBtn.y);
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
+  }
 }
 
 function updateHud() {
@@ -302,6 +419,8 @@ function updateHud() {
 
 function gameOver() {
   state = 'GAMEOVER';
+  joystick.active = false;
+  aim.active = false;
   overlayTitle.textContent = 'Game Over';
   const pct = shotsFired ? Math.round((shotsHit / shotsFired) * 100) : 0;
   overlayText.innerHTML =
@@ -329,6 +448,9 @@ startBtn.addEventListener('click', () => {
 });
 
 reset();
+overlayText.innerHTML = isTouchDevice
+  ? 'Linke Bildschirmhälfte: Joystick zum Bewegen &amp; Ausweichen<br>Rechte Bildschirmhälfte: ziehen zum Zielen (Auto-Feuer, vorhalten!)<br>SUPER-Button unten rechts bei vollem Balken antippen'
+  : 'WASD / Pfeiltasten: bewegen &amp; Projektilen ausweichen<br>Maus + Klick: auf bewegliches Ziel schießen (vorhalten!)<br>Leertaste bei vollem Super-Balken: Super-Blast (räumt Projektile weg)';
 overlay.style.display = 'flex';
 requestAnimationFrame(loop);
 </script>
