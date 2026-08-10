@@ -2,6 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Login Brute-Force Tester (nur eigene Webseiten)</title>
 <style>
   body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; color: #222; }
@@ -30,8 +31,8 @@
   <strong>Nur fuer eigene Webseiten oder ausdruecklich genehmigte Tests.</strong>
   Das Tool sendet Login-Versuche an die angegebene URL. Wende es nur gegen
   Systeme an, deren Eigentuemer du bist oder fuer die du eine schriftliche
-  Testerlaubnis hast. Maximal {{ max_attempts }} Versuche pro Lauf, mit
-  eingebauter Verzoegerung zwischen den Anfragen.
+  Testerlaubnis hast. Maximal {{ max_attempts }} Versuche pro Lauf, maximal
+  {{ max_concurrency }} gleichzeitige Anfragen.
 </div>
 
 {% if error %}
@@ -71,12 +72,48 @@
   </fieldset>
 
   <fieldset>
+    <legend>Betriebsart</legend>
+    <label>
+      <input type="radio" name="attack_mode" value="wordlist" id="mode_wordlist" onchange="toggleMode()" {% if request.form.get('attack_mode', 'wordlist') == 'wordlist' %}checked{% endif %}>
+      Wortliste (selbst eingetragen)
+    </label>
+    <label>
+      <input type="radio" name="attack_mode" value="pin" id="mode_pin" onchange="toggleMode()" {% if request.form.get('attack_mode') == 'pin' %}checked{% endif %}>
+      Zahlen-PIN (Bereich automatisch generiert)
+    </label>
+  </fieldset>
+
+  <fieldset id="wordlist-fields">
     <legend>Passwortliste</legend>
     <label for="wordlist">Ein Passwort pro Zeile</label>
     <textarea id="wordlist" name="wordlist" placeholder="123456&#10;passwort&#10;qwertz123">{{ request.form.get('wordlist', '') }}</textarea>
+  </fieldset>
 
-    <label for="delay">Verzoegerung zwischen Versuchen (Sekunden, min. 0.5)</label>
-    <input type="number" id="delay" name="delay" step="0.1" min="0.5" value="{{ request.form.get('delay', '1') }}">
+  <fieldset id="pin-fields">
+    <legend>PIN-Bereich</legend>
+    <label for="pin_from">Von</label>
+    <input type="number" id="pin_from" name="pin_from" min="0" max="999999" value="{{ request.form.get('pin_from', '1') }}">
+    <label for="pin_to">Bis</label>
+    <input type="number" id="pin_to" name="pin_to" min="0" max="999999" value="{{ request.form.get('pin_to', '999999') }}">
+    <div class="hint">Probiert automatisch jede Zahl in diesem Bereich (max. 999999) als Passwort.</div>
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="pin_pad" name="pin_pad" {% if request.form.get('pin_pad') == 'on' %}checked{% endif %}>
+      <label for="pin_pad">Mit fuehrenden Nullen auffuellen (z.B. 0001 statt 1)</label>
+    </div>
+    <label for="pin_pad_len">PIN-Laenge fuer Nullen-Auffuellung</label>
+    <input type="number" id="pin_pad_len" name="pin_pad_len" min="4" max="6" value="{{ request.form.get('pin_pad_len', '6') }}">
+  </fieldset>
+
+  <fieldset>
+    <legend>Tempo</legend>
+    <label for="delay">Verzoegerung pro Anfrage (Sekunden)</label>
+    <input type="number" id="delay" name="delay" step="0.1" min="0" value="{{ request.form.get('delay', '0') }}">
+    <div class="hint">0 = keine Pause zwischen den Anfragen eines einzelnen Workers.</div>
+
+    <label for="concurrency">Parallelitaet (gleichzeitige Anfragen)</label>
+    <input type="number" id="concurrency" name="concurrency" min="1" max="{{ max_concurrency }}" value="{{ request.form.get('concurrency', '5') }}">
+    <div class="hint">Max. {{ max_concurrency }} gleichzeitige Anfragen — bewusst begrenzt, damit der Test deinen Server nicht ueberlastet (kein DoS-Tool).</div>
   </fieldset>
 
   <div class="checkbox-row">
@@ -87,26 +124,34 @@
   <button type="submit">Test starten</button>
 </form>
 
+<script>
+  function toggleMode() {
+    const isPin = document.getElementById('mode_pin').checked;
+    document.getElementById('wordlist-fields').style.display = isPin ? 'none' : 'block';
+    document.getElementById('pin-fields').style.display = isPin ? 'block' : 'none';
+  }
+  toggleMode();
+</script>
+
 {% if report %}
   <h2>Ergebnis</h2>
   {% if report.found_password %}
     <p class="found">Passwort gefunden: {{ report.found_password }} (nach {{ report.total_tried }} Versuchen)</p>
   {% else %}
-    <p>Kein Passwort aus der Liste hat funktioniert ({{ report.total_tried }} Versuche).</p>
+    <p>Kein Passwort hat funktioniert ({{ report.total_tried }} Versuche).</p>
   {% endif %}
 
   {% if report.stopped_reason %}
     <p class="stopped">Hinweis: {{ report.stopped_reason }}</p>
   {% endif %}
 
+  <p class="hint">Zeige die letzten {{ report.attempts|length }} Versuche:</p>
   <table>
-    <tr><th>#</th><th>Passwort</th><th>HTTP-Status</th><th>Dauer (s)</th><th>Treffer</th></tr>
+    <tr><th>Passwort</th><th>HTTP-Status</th><th>Treffer</th></tr>
     {% for a in report.attempts %}
     <tr class="{{ 'match' if a.matched else '' }}">
-      <td>{{ loop.index }}</td>
       <td>{{ a.password }}</td>
       <td>{{ a.status_code }}</td>
-      <td>{{ "%.2f"|format(a.elapsed) }}</td>
       <td>{{ "Ja" if a.matched else "Nein" }}</td>
     </tr>
     {% endfor %}
