@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Login Brute-Force Tester (nur eigene Webseiten)</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; color: #222; }
+  h1 { font-size: 1.4rem; }
+  .warning { background: #fff3cd; border: 1px solid #ffe69c; padding: 1rem; border-radius: 6px; margin-bottom: 1.5rem; }
+  fieldset { border: 1px solid #ddd; border-radius: 6px; margin-bottom: 1rem; }
+  label { display: block; margin-top: 0.75rem; font-weight: 600; }
+  input[type=text], input[type=url], input[type=number], textarea { width: 100%; padding: 0.4rem; box-sizing: border-box; font-family: monospace; }
+  textarea { height: 120px; }
+  .hint { color: #666; font-size: 0.85rem; margin-top: 0.15rem; }
+  .checkbox-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem; }
+  .checkbox-row label { margin: 0; font-weight: normal; }
+  button { margin-top: 1.2rem; padding: 0.6rem 1.2rem; font-weight: 600; cursor: pointer; }
+  .error { color: #b00020; font-weight: 600; }
+  table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+  th, td { border: 1px solid #ddd; padding: 0.4rem 0.6rem; text-align: left; font-size: 0.9rem; }
+  tr.match { background: #d4edda; }
+  .found { color: #1a7f37; font-weight: 700; }
+  .stopped { color: #b45309; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Login Brute-Force Tester</h1>
+
+<div class="warning">
+  <strong>Nur fuer eigene Webseiten oder ausdruecklich genehmigte Tests.</strong>
+  Das Tool sendet Login-Versuche an die angegebene URL. Wende es nur gegen
+  Systeme an, deren Eigentuemer du bist oder fuer die du eine schriftliche
+  Testerlaubnis hast. Maximal {{ max_attempts }} Versuche pro Lauf, mit
+  eingebauter Verzoegerung zwischen den Anfragen.
+</div>
+
+{% if error %}
+  <p class="error">{{ error }}</p>
+{% endif %}
+
+<form method="post">
+  <fieldset>
+    <legend>Ziel</legend>
+    <label for="login_url">Login-URL</label>
+    <input type="url" id="login_url" name="login_url" placeholder="https://meine-seite.de/login" required value="{{ request.form.get('login_url', '') }}">
+
+    <label for="username">Benutzername</label>
+    <input type="text" id="username" name="username" required value="{{ request.form.get('username', '') }}">
+
+    <label for="username_field">Formularfeld-Name Benutzername</label>
+    <input type="text" id="username_field" name="username_field" value="{{ request.form.get('username_field', 'username') }}">
+    <div class="hint">Der "name"-Attributwert des Benutzername-Feldes im HTML-Formular.</div>
+
+    <label for="password_field">Formularfeld-Name Passwort</label>
+    <input type="text" id="password_field" name="password_field" value="{{ request.form.get('password_field', 'password') }}">
+    <div class="hint">Der "name"-Attributwert des Passwort-Feldes im HTML-Formular.</div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Erkennung von Erfolg/Misserfolg</legend>
+    <label>
+      <input type="radio" name="indicator_mode" value="fail_text" {% if request.form.get('indicator_mode', 'fail_text') == 'fail_text' %}checked{% endif %}>
+      Fehler-Text (erscheint bei falschem Login, z.B. "Ungueltige Anmeldedaten")
+    </label>
+    <label>
+      <input type="radio" name="indicator_mode" value="success_text" {% if request.form.get('indicator_mode') == 'success_text' %}checked{% endif %}>
+      Erfolgs-Text (erscheint nur nach erfolgreichem Login, z.B. "Willkommen" oder "Logout")
+    </label>
+    <input type="text" id="indicator_text" name="indicator_text" placeholder="z.B. Ungueltige Anmeldedaten" required value="{{ request.form.get('indicator_text', '') }}">
+    <div class="hint">Schau dir die Antwort einer bewusst falschen Anmeldung an und nutze einen Text, der dort eindeutig vorkommt.</div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Passwortliste</legend>
+    <label for="wordlist">Ein Passwort pro Zeile</label>
+    <textarea id="wordlist" name="wordlist" placeholder="123456&#10;passwort&#10;qwertz123">{{ request.form.get('wordlist', '') }}</textarea>
+
+    <label for="delay">Verzoegerung zwischen Versuchen (Sekunden, min. 0.5)</label>
+    <input type="number" id="delay" name="delay" step="0.1" min="0.5" value="{{ request.form.get('delay', '1') }}">
+  </fieldset>
+
+  <div class="checkbox-row">
+    <input type="checkbox" id="confirm_authorized" name="confirm_authorized" {% if request.form.get('confirm_authorized') == 'on' %}checked{% endif %}>
+    <label for="confirm_authorized">Ich bestaetige, dass ich Eigentuemer dieser Webseite bin oder eine ausdrueckliche schriftliche Genehmigung zum Testen habe.</label>
+  </div>
+
+  <button type="submit">Test starten</button>
+</form>
+
+{% if report %}
+  <h2>Ergebnis</h2>
+  {% if report.found_password %}
+    <p class="found">Passwort gefunden: {{ report.found_password }} (nach {{ report.total_tried }} Versuchen)</p>
+  {% else %}
+    <p>Kein Passwort aus der Liste hat funktioniert ({{ report.total_tried }} Versuche).</p>
+  {% endif %}
+
+  {% if report.stopped_reason %}
+    <p class="stopped">Hinweis: {{ report.stopped_reason }}</p>
+  {% endif %}
+
+  <table>
+    <tr><th>#</th><th>Passwort</th><th>HTTP-Status</th><th>Dauer (s)</th><th>Treffer</th></tr>
+    {% for a in report.attempts %}
+    <tr class="{{ 'match' if a.matched else '' }}">
+      <td>{{ loop.index }}</td>
+      <td>{{ a.password }}</td>
+      <td>{{ a.status_code }}</td>
+      <td>{{ "%.2f"|format(a.elapsed) }}</td>
+      <td>{{ "Ja" if a.matched else "Nein" }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+{% endif %}
+
+</body>
+</html>
