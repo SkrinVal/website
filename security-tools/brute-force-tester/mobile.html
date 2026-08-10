@@ -108,9 +108,9 @@
 
   <fieldset>
     <legend>Tempo</legend>
-    <label for="delay">Verz&ouml;gerung zwischen Versuchen (Sek., min. 0.5)</label>
-    <input type="number" id="delay" step="0.1" min="0.5" value="1">
-    <div class="hint">Bei einem vollen 6-stelligen Bereich (999999 Versuche) dauert der Test bei 0,5s Verz&ouml;gerung mehrere Tage &ndash; das ist beabsichtigt (kein DoS-Tool). Grenze den Bereich ein, wenn du gezielt testen willst.</div>
+    <label for="delay">Verz&ouml;gerung zwischen Versuchen (Sekunden)</label>
+    <input type="number" id="delay" step="0.1" min="0" value="0">
+    <div class="hint">0 = keine Pause, n&auml;chster Versuch startet sofort nach der Antwort des Servers. Anfragen laufen immer nacheinander (nie parallel), das Tempo ist also durch die Antwortzeit deines Servers begrenzt.</div>
   </fieldset>
 
   <div class="checkbox-row">
@@ -128,7 +128,7 @@
 
 <script>
 const MAX_ATTEMPTS = 999999;
-const MIN_DELAY = 0.5;
+const MIN_DELAY = 0;
 const RESULT_ROWS_SHOWN = 25;
 
 const form = document.getElementById('bf-form');
@@ -256,11 +256,6 @@ form.addEventListener('submit', async (e) => {
       break;
     }
 
-    if (text.includes('captcha')) {
-      stoppedReason = 'Captcha erkannt — Ziel schützt sich aktiv. Test abgebrochen (gutes Zeichen).';
-      recentAttempts.push({ pw, status, matched: false });
-      break;
-    }
     if (status === 429) {
       stoppedReason = 'HTTP 429 erhalten — Rate-Limiting ist aktiv. Test abgebrochen (gutes Zeichen).';
       recentAttempts.push({ pw, status, matched: false });
