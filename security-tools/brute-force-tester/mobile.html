@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Login Brute-Force Tester (mobil)</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 1rem; color: #222; background: #fafafa; }
+  h1 { font-size: 1.3rem; }
+  .warning { background: #fff3cd; border: 1px solid #ffe69c; padding: 0.9rem; border-radius: 8px; margin-bottom: 1.2rem; font-size: 0.92rem; }
+  .cors-note { background: #e7f1ff; border: 1px solid #b6d4fe; padding: 0.9rem; border-radius: 8px; margin-bottom: 1.2rem; font-size: 0.88rem; }
+  fieldset { border: 1px solid #ddd; border-radius: 8px; margin-bottom: 1rem; background: #fff; }
+  legend { font-weight: 700; padding: 0 0.3rem; }
+  label { display: block; margin-top: 0.8rem; font-weight: 600; font-size: 0.92rem; }
+  input[type=text], input[type=url], input[type=number], textarea {
+    width: 100%; padding: 0.6rem; margin-top: 0.2rem; font-size: 1rem;
+    border: 1px solid #ccc; border-radius: 6px; font-family: monospace;
+  }
+  textarea { height: 110px; }
+  .hint { color: #666; font-size: 0.8rem; margin-top: 0.15rem; }
+  .checkbox-row { display: flex; align-items: flex-start; gap: 0.6rem; margin-top: 1rem; }
+  .checkbox-row input { width: 1.3rem; height: 1.3rem; margin-top: 0.1rem; flex-shrink: 0; }
+  .checkbox-row label { margin: 0; font-weight: normal; font-size: 0.9rem; }
+  button { width: 100%; margin-top: 1.2rem; padding: 0.9rem; font-weight: 700; font-size: 1rem;
+    border: none; border-radius: 8px; background: #1a56db; color: #fff; }
+  button:disabled { background: #9db4e0; }
+  button.stop { background: #b00020; }
+  .error { color: #b00020; font-weight: 600; }
+  table { border-collapse: collapse; width: 100%; margin-top: 1rem; font-size: 0.85rem; }
+  th, td { border: 1px solid #ddd; padding: 0.35rem 0.5rem; text-align: left; }
+  tr.match { background: #d4edda; }
+  .found { color: #1a7f37; font-weight: 700; }
+  .stopped { color: #b45309; font-weight: 600; }
+  .progress { font-size: 0.9rem; color: #444; margin-top: 0.8rem; }
+  #results { margin-top: 1.5rem; }
+</style>
+</head>
+<body>
+<h1>Login Brute-Force Tester (mobil)</h1>
+
+<div class="warning">
+  <strong>Nur f&uuml;r eigene Webseiten oder ausdr&uuml;cklich genehmigte Tests.</strong>
+  Sende Login-Versuche nur an Seiten, deren Eigent&uuml;mer du bist oder f&uuml;r
+  die du eine schriftliche Testerlaubnis hast.
+</div>
+
+<div class="cors-note">
+  <strong>Wichtig f&uuml;r die Funktion:</strong> Dies ist eine reine HTML/JS-Seite,
+  die im Browser l&auml;uft. Browser blockieren aus Sicherheitsgr&uuml;nden
+  (CORS) standardm&auml;&szlig;ig Anfragen an fremde Domains. Damit der Test
+  funktioniert, lade diese Datei am besten auf <strong>deine eigene
+  Webseite</strong> hoch (gleiche Domain wie das Login-Formular) und rufe sie
+  von dort &uuml;ber dein Handy auf &ndash; dann greift CORS nicht.
+</div>
+
+<form id="bf-form">
+  <fieldset>
+    <legend>Ziel</legend>
+    <label for="login_url">Login-URL</label>
+    <input type="url" id="login_url" placeholder="https://meine-seite.de/login" required>
+
+    <label for="username">Benutzername</label>
+    <input type="text" id="username" required>
+
+    <label for="username_field">Formularfeld-Name Benutzername</label>
+    <input type="text" id="username_field" value="username">
+
+    <label for="password_field">Formularfeld-Name Passwort</label>
+    <input type="text" id="password_field" value="password">
+  </fieldset>
+
+  <fieldset>
+    <legend>Erkennung</legend>
+    <label><input type="radio" name="indicator_mode" value="fail_text" checked> Fehler-Text (bei falschem Login)</label>
+    <label><input type="radio" name="indicator_mode" value="success_text"> Erfolgs-Text (nur nach Login)</label>
+    <input type="text" id="indicator_text" placeholder="z.B. Ung&uuml;ltige Anmeldedaten" required>
+    <div class="hint">Text, der eindeutig bei Fehl- bzw. Erfolgs-Login in der Antwort erscheint.</div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Passwortliste</legend>
+    <label for="wordlist">Ein Passwort pro Zeile</label>
+    <textarea id="wordlist" placeholder="123456&#10;passwort&#10;qwertz123"></textarea>
+
+    <label for="delay">Verz&ouml;gerung zwischen Versuchen (Sek., min. 0.5)</label>
+    <input type="number" id="delay" step="0.1" min="0.5" value="1">
+  </fieldset>
+
+  <div class="checkbox-row">
+    <input type="checkbox" id="confirm_authorized">
+    <label for="confirm_authorized">Ich best&auml;tige, dass ich Eigent&uuml;mer dieser Webseite bin oder eine ausdr&uuml;ckliche schriftliche Genehmigung zum Testen habe.</label>
+  </div>
+
+  <p class="error" id="error" style="display:none;"></p>
+
+  <button type="submit" id="start-btn">Test starten</button>
+  <button type="button" id="stop-btn" class="stop" style="display:none;">Test abbrechen</button>
+</form>
+
+<div id="results"></div>
+
+<script>
+const MAX_ATTEMPTS = 500;
+const MIN_DELAY = 0.5;
+
+const form = document.getElementById('bf-form');
+const errorEl = document.getElementById('error');
+const resultsEl = document.getElementById('results');
+const startBtn = document.getElementById('start-btn');
+const stopBtn = document.getElementById('stop-btn');
+
+let running = false;
+let stopRequested = false;
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function showError(msg) {
+  errorEl.textContent = msg;
+  errorEl.style.display = 'block';
+}
+
+function clearError() {
+  errorEl.style.display = 'none';
+  errorEl.textContent = '';
+}
+
+stopBtn.addEventListener('click', () => {
+  stopRequested = true;
+});
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearError();
+
+  if (running) return;
+
+  const confirmed = document.getElementById('confirm_authorized').checked;
+  const loginUrl = document.getElementById('login_url').value.trim();
+  const usernameField = document.getElementById('username_field').value.trim() || 'username';
+  const passwordField = document.getElementById('password_field').value.trim() || 'password';
+  const username = document.getElementById('username').value.trim();
+  const indicatorMode = document.querySelector('input[name=indicator_mode]:checked').value;
+  const indicatorText = document.getElementById('indicator_text').value.trim().toLowerCase();
+  let delay = parseFloat(document.getElementById('delay').value);
+  if (isNaN(delay) || delay < MIN_DELAY) delay = MIN_DELAY;
+
+  const passwords = document.getElementById('wordlist').value
+    .split('\n').map(p => p.trim()).filter(p => p.length > 0).slice(0, MAX_ATTEMPTS);
+
+  if (!confirmed) { showError('Du musst bestätigen, dass du zum Testen berechtigt bist.'); return; }
+  if (!loginUrl.startsWith('http://') && !loginUrl.startsWith('https://')) { showError('Bitte eine gültige Login-URL angeben.'); return; }
+  if (!username) { showError('Bitte einen Benutzernamen angeben.'); return; }
+  if (!indicatorText) { showError('Bitte einen Erkennungstext angeben.'); return; }
+  if (passwords.length === 0) { showError('Bitte mindestens ein Passwort in der Liste angeben.'); return; }
+
+  running = true;
+  stopRequested = false;
+  startBtn.disabled = true;
+  startBtn.textContent = 'Läuft...';
+  stopBtn.style.display = 'block';
+
+  resultsEl.innerHTML = '<div class="progress" id="progress">Start...</div>';
+  const progressEl = document.getElementById('progress');
+
+  let foundPassword = null;
+  let stoppedReason = null;
+  const attempts = [];
+
+  for (let i = 0; i < passwords.length; i++) {
+    if (stopRequested) { stoppedReason = 'Manuell abgebrochen.'; break; }
+
+    const pw = passwords[i];
+    progressEl.textContent = `Versuch ${i + 1}/${passwords.length}: ${pw}`;
+
+    const body = new URLSearchParams();
+    body.set(usernameField, username);
+    body.set(passwordField, pw);
+
+    let status = null, text = '', matched = false, netError = null;
+
+    try {
+      const resp = await fetch(loginUrl, { method: 'POST', body, credentials: 'include' });
+      status = resp.status;
+      text = (await resp.text()).toLowerCase();
+    } catch (err) {
+      netError = err.message;
+    }
+
+    if (netError) {
+      stoppedReason = `Netzwerk-/CORS-Fehler: ${netError}. Host diese Datei auf derselben Domain wie die Login-Seite, dann greift CORS nicht mehr.`;
+      attempts.push({ pw, status: '-', matched: false });
+      break;
+    }
+
+    if (text.includes('captcha')) {
+      stoppedReason = 'Captcha erkannt — Ziel schützt sich aktiv. Test abgebrochen (gutes Zeichen).';
+      attempts.push({ pw, status, matched: false });
+      break;
+    }
+    if (status === 429) {
+      stoppedReason = 'HTTP 429 erhalten — Rate-Limiting ist aktiv. Test abgebrochen (gutes Zeichen).';
+      attempts.push({ pw, status, matched: false });
+      break;
+    }
+
+    matched = indicatorMode === 'success_text' ? text.includes(indicatorText) : !text.includes(indicatorText);
+    attempts.push({ pw, status, matched });
+
+    if (matched) { foundPassword = pw; break; }
+
+    await sleep(delay * 1000);
+  }
+
+  if (!foundPassword && !stoppedReason && attempts.length >= MAX_ATTEMPTS) {
+    stoppedReason = `Maximale Versuchsanzahl (${MAX_ATTEMPTS}) erreicht.`;
+  }
+
+  let html = '<h2>Ergebnis</h2>';
+  if (foundPassword) {
+    html += `<p class="found">Passwort gefunden: ${foundPassword} (nach ${attempts.length} Versuchen)</p>`;
+  } else {
+    html += `<p>Kein Passwort aus der Liste hat funktioniert (${attempts.length} Versuche).</p>`;
+  }
+  if (stoppedReason) {
+    html += `<p class="stopped">Hinweis: ${stoppedReason}</p>`;
+  }
+  html += '<table><tr><th>#</th><th>Passwort</th><th>Status</th><th>Treffer</th></tr>';
+  attempts.forEach((a, idx) => {
+    html += `<tr class="${a.matched ? 'match' : ''}"><td>${idx + 1}</td><td>${a.pw}</td><td>${a.status}</td><td>${a.matched ? 'Ja' : 'Nein'}</td></tr>`;
+  });
+  html += '</table>';
+
+  resultsEl.innerHTML = html;
+
+  running = false;
+  startBtn.disabled = false;
+  startBtn.textContent = 'Test starten';
+  stopBtn.style.display = 'none';
+});
+</script>
+</body>
+</html>
