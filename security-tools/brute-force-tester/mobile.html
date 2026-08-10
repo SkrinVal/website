@@ -108,9 +108,13 @@
 
   <fieldset>
     <legend>Tempo</legend>
-    <label for="delay">Verz&ouml;gerung zwischen Versuchen (Sekunden)</label>
+    <label for="delay">Verz&ouml;gerung pro Anfrage (Sekunden)</label>
     <input type="number" id="delay" step="0.1" min="0" value="0">
-    <div class="hint">0 = keine Pause, n&auml;chster Versuch startet sofort nach der Antwort des Servers. Anfragen laufen immer nacheinander (nie parallel), das Tempo ist also durch die Antwortzeit deines Servers begrenzt.</div>
+    <div class="hint">0 = keine Pause zwischen den Anfragen eines einzelnen Workers.</div>
+
+    <label for="concurrency">Parallelit&auml;t (gleichzeitige Anfragen)</label>
+    <input type="number" id="concurrency" min="1" max="20" value="5">
+    <div class="hint">Max. 20 gleichzeitige Anfragen &ndash; bewusst begrenzt, damit der Test deinen Server nicht in die Knie zwingt (kein DoS-Tool). Das entspricht dem &uuml;blichen Standardbereich regul&auml;rer Pentest-Tools.</div>
   </fieldset>
 
   <div class="checkbox-row">
@@ -129,6 +133,7 @@
 <script>
 const MAX_ATTEMPTS = 999999;
 const MIN_DELAY = 0;
+const MAX_CONCURRENCY = 20;
 const RESULT_ROWS_SHOWN = 25;
 
 const form = document.getElementById('bf-form');
@@ -181,6 +186,9 @@ form.addEventListener('submit', async (e) => {
   const indicatorText = document.getElementById('indicator_text').value.trim().toLowerCase();
   let delay = parseFloat(document.getElementById('delay').value);
   if (isNaN(delay) || delay < MIN_DELAY) delay = MIN_DELAY;
+  let concurrency = parseInt(document.getElementById('concurrency').value, 10);
+  if (isNaN(concurrency) || concurrency < 1) concurrency = 1;
+  if (concurrency > MAX_CONCURRENCY) concurrency = MAX_CONCURRENCY;
 
   const attackMode = document.querySelector('input[name=attack_mode]:checked').value;
 
@@ -223,53 +231,68 @@ form.addEventListener('submit', async (e) => {
   resultsEl.innerHTML = '<div class="progress" id="progress">Start...</div>';
   const progressEl = document.getElementById('progress');
 
-  let foundPassword = null;
-  let stoppedReason = null;
-  let triedCount = 0;
-  const recentAttempts = [];
+  const state = {
+    foundPassword: null,
+    stoppedReason: null,
+    triedCount: 0,
+    nextIndex: 0,
+    recentAttempts: [],
+  };
 
-  for (let i = 0; i < totalCount; i++) {
-    if (stopRequested) { stoppedReason = 'Manuell abgebrochen.'; break; }
+  async function worker() {
+    while (true) {
+      if (stopRequested) { state.stoppedReason = state.stoppedReason || 'Manuell abgebrochen.'; return; }
+      if (state.foundPassword || state.stoppedReason) return;
+      if (state.nextIndex >= totalCount) return;
 
-    const pw = getPassword(i);
-    progressEl.textContent = `Versuch ${i + 1}/${totalCount}: ${pw}`;
+      const i = state.nextIndex++;
+      const pw = getPassword(i);
 
-    const body = new URLSearchParams();
-    body.set(usernameField, username);
-    body.set(passwordField, pw);
+      const body = new URLSearchParams();
+      body.set(usernameField, username);
+      body.set(passwordField, pw);
 
-    let status = null, text = '', matched = false, netError = null;
+      let status = null, text = '', matched = false, netError = null;
 
-    try {
-      const resp = await fetch(loginUrl, { method: 'POST', body, credentials: 'include' });
-      status = resp.status;
-      text = (await resp.text()).toLowerCase();
-    } catch (err) {
-      netError = err.message;
+      try {
+        const resp = await fetch(loginUrl, { method: 'POST', body, credentials: 'include' });
+        status = resp.status;
+        text = (await resp.text()).toLowerCase();
+      } catch (err) {
+        netError = err.message;
+      }
+
+      state.triedCount++;
+      progressEl.textContent = `Versuch ${state.triedCount}/${totalCount} (zuletzt: ${pw})`;
+
+      if (netError) {
+        state.stoppedReason = `Netzwerk-/CORS-Fehler: ${netError}. Host diese Datei auf derselben Domain wie die Login-Seite, dann greift CORS nicht mehr.`;
+        state.recentAttempts.push({ pw, status: '-', matched: false });
+        return;
+      }
+
+      if (status === 429) {
+        state.stoppedReason = 'HTTP 429 erhalten — Rate-Limiting ist aktiv. Test abgebrochen (gutes Zeichen).';
+        state.recentAttempts.push({ pw, status, matched: false });
+        return;
+      }
+
+      matched = indicatorMode === 'success_text' ? text.includes(indicatorText) : !text.includes(indicatorText);
+      state.recentAttempts.push({ pw, status, matched });
+      if (state.recentAttempts.length > RESULT_ROWS_SHOWN) state.recentAttempts.shift();
+
+      if (matched) { state.foundPassword = pw; return; }
+
+      if (delay > 0) await sleep(delay * 1000);
     }
-
-    triedCount++;
-
-    if (netError) {
-      stoppedReason = `Netzwerk-/CORS-Fehler: ${netError}. Host diese Datei auf derselben Domain wie die Login-Seite, dann greift CORS nicht mehr.`;
-      recentAttempts.push({ pw, status: '-', matched: false });
-      break;
-    }
-
-    if (status === 429) {
-      stoppedReason = 'HTTP 429 erhalten — Rate-Limiting ist aktiv. Test abgebrochen (gutes Zeichen).';
-      recentAttempts.push({ pw, status, matched: false });
-      break;
-    }
-
-    matched = indicatorMode === 'success_text' ? text.includes(indicatorText) : !text.includes(indicatorText);
-    recentAttempts.push({ pw, status, matched });
-    if (recentAttempts.length > RESULT_ROWS_SHOWN) recentAttempts.shift();
-
-    if (matched) { foundPassword = pw; break; }
-
-    await sleep(delay * 1000);
   }
+
+  const workers = [];
+  for (let w = 0; w < concurrency; w++) workers.push(worker());
+  await Promise.all(workers);
+
+  const { foundPassword, recentAttempts, triedCount } = state;
+  let stoppedReason = state.stoppedReason;
 
   if (!foundPassword && !stoppedReason && triedCount >= MAX_ATTEMPTS) {
     stoppedReason = `Maximale Versuchsanzahl (${MAX_ATTEMPTS}) erreicht.`;
