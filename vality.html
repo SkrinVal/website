@@ -187,6 +187,72 @@
   .marquee span i{width:6px;height:6px;border-radius:50%;background:var(--grad);}
   @keyframes marquee{from{transform:translateX(0);}to{transform:translateX(-50%);}}
 
+  /* ---------- exploded stack ---------- */
+  .stack-section{position:relative;height:400vh;background:var(--dark);}
+  .stack-pin{
+    position:sticky;top:0;height:100vh;overflow:hidden;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6vh;
+    background:radial-gradient(120% 90% at 50% 0%,rgba(124,92,252,.22),transparent 60%),var(--dark);
+  }
+  .stack-pin::before{
+    content:'';position:absolute;inset:0;
+    background-image:radial-gradient(rgba(255,255,255,.08) 1px,transparent 1px);
+    background-size:26px 26px;mask-image:radial-gradient(70% 60% at 50% 45%,#000,transparent);
+    opacity:.5;pointer-events:none;
+  }
+  .stack-head{position:relative;text-align:center;color:#fff;z-index:2;}
+  .stack-head .eyebrow{background:rgba(255,255,255,.1);color:#fff;}
+  .stack-headline{position:relative;height:1.3em;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .stack-headline b{
+    position:absolute;left:0;right:0;font-family:'Unbounded',sans-serif;font-weight:700;
+    font-size:clamp(1.8rem,7vw,3rem);opacity:0;transform:translateY(24px);
+    transition:opacity .45s cubic-bezier(.2,.7,.2,1),transform .45s cubic-bezier(.2,.7,.2,1);
+  }
+  .stack-headline b.grad-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;}
+  .stack-headline b.on{opacity:1;transform:translateY(0);}
+  .stack-progress-track{width:min(220px,60vw);height:3px;border-radius:2px;background:rgba(255,255,255,.12);position:relative;z-index:2;overflow:hidden;}
+  .stack-progress-fill{height:100%;width:0%;background:var(--grad);border-radius:2px;}
+
+  .stack-visual{position:relative;z-index:2;width:clamp(150px,46vw,280px);height:46vh;max-height:340px;}
+  .stack-layer{
+    position:absolute;left:50%;top:50%;width:100%;height:44px;border-radius:14px;
+    transform:translate(-50%,-50%);will-change:transform;
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    border:1px solid rgba(255,255,255,.14);box-shadow:0 14px 30px -14px rgba(0,0,0,.6);
+    font-family:'Unbounded',sans-serif;font-weight:600;font-size:.72rem;color:#fff;letter-spacing:.02em;
+  }
+  .stack-layer svg{width:16px;height:16px;flex-shrink:0;opacity:.9;}
+  .stack-layer[data-i="0"]{background:linear-gradient(135deg,rgba(255,255,255,.95),rgba(255,255,255,.75));color:var(--dark);height:40px;border-radius:16px 16px 12px 12px;}
+  .stack-layer[data-i="0"] svg{opacity:.8;}
+  .stack-layer[data-i="1"]{background:linear-gradient(135deg,var(--pink),var(--purple));}
+  .stack-layer[data-i="2"]{background:linear-gradient(135deg,var(--purple),var(--blue));}
+  .stack-layer[data-i="3"]{background:linear-gradient(135deg,var(--blue),var(--orange));}
+  .stack-layer[data-i="4"]{
+    height:56px;border-radius:12px 12px 20px 20px;
+    background:linear-gradient(135deg,#2a2140,#140F1F);
+    box-shadow:0 20px 40px -16px rgba(0,0,0,.7),inset 0 0 0 1px rgba(255,255,255,.06);
+  }
+
+  .stack-label{
+    position:absolute;top:50%;width:clamp(66px,20vw,190px);pointer-events:none;
+    opacity:var(--reveal,0);font-size:clamp(.62rem,2vw,.85rem);
+    transition:opacity .1s linear;
+  }
+  .stack-label .lbl-title{display:block;font-family:'Unbounded',sans-serif;font-weight:700;font-size:1em;color:#fff;line-height:1.25;}
+  .stack-label .lbl-sub{display:block;margin-top:2px;font-size:.86em;color:rgba(255,255,255,.5);font-weight:500;}
+  .stack-label[data-side="right"]{left:100%;margin-left:clamp(8px,4vw,30px);text-align:left;transform:translate(calc((1 - var(--reveal,0)) * -14px),-50%);}
+  .stack-label[data-side="left"]{right:100%;margin-right:clamp(8px,4vw,30px);text-align:right;transform:translate(calc((1 - var(--reveal,0)) * 14px),-50%);}
+  .stack-label::before{
+    content:'';position:absolute;top:50%;height:1px;width:clamp(10px,3vw,24px);
+    transform:scaleX(var(--reveal,0));
+  }
+  .stack-label[data-side="right"]::before{left:clamp(-10px,-3vw,-24px);transform-origin:left;background:linear-gradient(90deg,rgba(255,255,255,.8),rgba(255,255,255,0));}
+  .stack-label[data-side="left"]::before{right:clamp(-10px,-3vw,-24px);transform-origin:right;background:linear-gradient(270deg,rgba(255,255,255,.8),rgba(255,255,255,0));}
+
+  @media(max-width:380px){
+    .stack-label .lbl-sub{display:none;}
+  }
+
   /* ---------- section generic ---------- */
   section{padding:88px 0;}
   section[id]{scroll-margin-top:86px;}
@@ -458,6 +524,50 @@
       <span><i></i>iOS</span><span><i></i>ANDROID</span><span><i></i>UI/UX DESIGN</span><span><i></i>SWIFTUI</span><span><i></i>FLUTTER</span><span><i></i>APP STORE OPTIMIERUNG</span><span><i></i>BACKEND &amp; API</span>
     </div>
   </div>
+
+  <section class="stack-section" id="stackSection">
+    <div class="stack-pin">
+      <div class="stack-head">
+        <span class="eyebrow">Der Vality-Stack</span>
+        <div class="stack-headline">
+          <b class="stage0 on">Eine App.</b>
+          <b class="stage1">Viele Ebenen.</b>
+          <b class="stage2 grad-text">Ein System.</b>
+        </div>
+      </div>
+
+      <div class="stack-visual" id="stackVisual">
+        <div class="stack-layer" data-i="0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M9 18h6"/></svg>
+          UI &amp; Screens
+        </div>
+        <div class="stack-layer" data-i="1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 3v3M12 18v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M3 12h3M18 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+          Interaktion
+        </div>
+        <div class="stack-layer" data-i="2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6v6H9z"/></svg>
+          Business-Logik
+        </div>
+        <div class="stack-layer" data-i="3">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m8 6-6 6 6 6M16 6l6 6-6 6"/></svg>
+          API-Layer
+        </div>
+        <div class="stack-layer" data-i="4">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M6 19a4 4 0 0 1-1-7.9 5 5 0 0 1 9.6-2A4.5 4.5 0 0 1 18 18"/><path d="M12 12v6M9.5 15.5 12 18l2.5-2.5"/></svg>
+          Cloud &amp; Datenbank
+        </div>
+
+        <div class="stack-label" data-i="0" data-side="right"><span class="lbl-title">UI &amp; Screens</span><span class="lbl-sub">SwiftUI / Jetpack Compose</span></div>
+        <div class="stack-label" data-i="1" data-side="left"><span class="lbl-title">Interaktion</span><span class="lbl-sub">Animationen &amp; Gestures</span></div>
+        <div class="stack-label" data-i="2" data-side="right"><span class="lbl-title">Business-Logik</span><span class="lbl-sub">State &amp; Features</span></div>
+        <div class="stack-label" data-i="3" data-side="left"><span class="lbl-title">API-Layer</span><span class="lbl-sub">REST / GraphQL</span></div>
+        <div class="stack-label" data-i="4" data-side="right"><span class="lbl-title">Cloud &amp; Datenbank</span><span class="lbl-sub">Skalierbare Infrastruktur</span></div>
+      </div>
+
+      <div class="stack-progress-track"><div class="stack-progress-fill" id="stackProgressFill"></div></div>
+    </div>
+  </section>
 
   <section id="leistungen">
     <div class="wrap">
@@ -771,6 +881,72 @@
       phone.style.transform = 'rotateY(' + (x*16) + 'deg) rotateX(' + (-y*16) + 'deg)';
     });
     stage.addEventListener('pointerleave', function(){ phone.style.transform = ''; });
+  }
+
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var stackSection = document.getElementById('stackSection');
+  var stackVisual = document.getElementById('stackVisual');
+  var stackFill = document.getElementById('stackProgressFill');
+  var layers = Array.prototype.slice.call(stackVisual.querySelectorAll('.stack-layer'));
+  var labels = Array.prototype.slice.call(stackVisual.querySelectorAll('.stack-label'));
+  var headBits = Array.prototype.slice.call(document.querySelectorAll('.stack-headline b'));
+  var currentStage = 0;
+
+  function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+
+  function setHeadStage(stage){
+    if(stage === currentStage) return;
+    currentStage = stage;
+    headBits.forEach(function(el, i){ el.classList.toggle('on', i === stage); });
+  }
+
+  function renderStack(progress){
+    var n = layers.length;
+    var centerIndex = (n - 1) / 2;
+    var visualH = stackVisual.getBoundingClientRect().height || 1;
+    var smallGap = visualH * 0.11;
+    var bigGap = visualH * (window.innerWidth < 760 ? 0.205 : 0.185);
+    var gap = smallGap + (bigGap - smallGap) * progress;
+
+    layers.forEach(function(el, i){
+      var offsetIndex = i - centerIndex;
+      var y = offsetIndex * gap;
+      var x = Math.sin(i * 2.1) * 10 * progress;
+      var rot = offsetIndex * 2.2 * progress;
+      el.style.transform = 'translate(calc(-50% + ' + x + 'px), calc(-50% + ' + y + 'px)) rotate(' + rot + 'deg)';
+
+      var label = labels[i];
+      if(label){
+        label.style.top = (50 + (y / visualH) * 100) + '%';
+        var start = 0.22 + i * 0.085;
+        var reveal = clamp((progress - start) / 0.22, 0, 1);
+        label.style.setProperty('--reveal', reveal);
+      }
+    });
+
+    if(stackFill) stackFill.style.width = (progress * 100) + '%';
+
+    var stage = progress < 0.14 ? 0 : (progress < 0.6 ? 1 : 2);
+    setHeadStage(stage);
+  }
+
+  if(reduceMotion){
+    renderStack(1);
+  } else {
+    var ticking = false;
+    function updateStackProgress(){
+      ticking = false;
+      var rect = stackSection.getBoundingClientRect();
+      var total = stackSection.offsetHeight - window.innerHeight;
+      var scrolled = -rect.top;
+      var progress = total > 0 ? clamp(scrolled / total, 0, 1) : 0;
+      renderStack(progress);
+    }
+    window.addEventListener('scroll', function(){
+      if(!ticking){ requestAnimationFrame(updateStackProgress); ticking = true; }
+    }, {passive:true});
+    window.addEventListener('resize', updateStackProgress);
+    updateStackProgress();
   }
 })();
 </script>
